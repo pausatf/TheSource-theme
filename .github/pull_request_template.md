@@ -3,7 +3,7 @@
 
 ## Related Issue
 <!-- Link to the related issue(s) -->
-Fixes #
+Fixes #ISSUE_ID <!-- Replace ISSUE_ID with the actual issue number -->
 
 ## Type of Change
 <!-- Mark with an 'x' all that apply -->
@@ -31,6 +31,7 @@ Fixes #
 - [ ] My changes generate no new warnings
 - [ ] I have checked for potential accessibility issues
 - [ ] I have verified my changes in different browsers (if applicable)
+- [ ] I have reviewed and incorporated Copilot's suggestions
 
 ## Screenshots (if applicable)
 <!-- Add screenshots to help explain your changes -->

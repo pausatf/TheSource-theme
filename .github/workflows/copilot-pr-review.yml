@@ -120,7 +120,7 @@ jobs:
             }
             
             // Add status label based on Copilot review
-            if ('${{ steps.copilot-review.outcome }}' === 'success') {
+            if (${{ steps.copilot-review.outcome }} === 'success') {
               if (!labels.includes('status: review passed')) labels.push('status: review passed');
             } else {
               if (!labels.includes('status: changes requested')) labels.push('status: changes requested');

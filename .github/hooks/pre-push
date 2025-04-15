@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# Branch naming convention check
+local_branch="$(git rev-parse --abbrev-ref HEAD)"
+valid_branch_regex="^(feature|fix|docs|style|refactor|test|chore)\/[a-z0-9-]+$"
+
+if [[ ! $local_branch =~ $valid_branch_regex ]] && [[ "$local_branch" != "main" ]]
+then
+    echo "ERROR: Branch name '$local_branch' doesn't follow the branch naming convention."
+    echo "Branch names should follow the pattern: <type>/<description>"
+    echo "Where <type> is one of: feature, fix, docs, style, refactor, test, chore"
+    echo "And <description> uses only lowercase letters, numbers, and hyphens."
+    echo "Example: feature/add-user-authentication"
+    exit 1
+fi
+
+exit 0

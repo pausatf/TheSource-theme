@@ -1,0 +1,30 @@
+name: GitHub Copilot PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  copilot-review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: GitHub Copilot PR Review
+        uses: github/copilot-preview-action@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          review-comment-prefix: "GitHub Copilot:"
+
+      - name: Approve PR if Copilot review is successful
+        if: success()
+        uses: hmarr/auto-approve-action@v3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          review-message: "Automatically approved by GitHub Copilot review workflow"

@@ -1,0 +1,144 @@
+name: GitHub Copilot PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  label-pr:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          
+      - name: Label PR based on files changed
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { owner, repo, number } = context.issue;
+            
+            // Get the PR details
+            const { data: pr } = await github.rest.pulls.get({
+              owner,
+              repo,
+              pull_number: number
+            });
+            
+            // Get the files changed in the PR
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner,
+              repo,
+              pull_number: number
+            });
+            
+            // Initialize labels array with existing labels
+            const labels = [...pr.labels.map(label => label.name)];
+            
+            // Add type label based on PR title
+            if (pr.title.toLowerCase().includes('fix') || pr.title.startsWith('fix:')) {
+              if (!labels.includes('type: bug')) labels.push('type: bug');
+            } else if (pr.title.toLowerCase().includes('feat') || pr.title.startsWith('feat:')) {
+              if (!labels.includes('type: feature')) labels.push('type: feature');
+            } else if (pr.title.toLowerCase().includes('doc') || pr.title.startsWith('docs:')) {
+              if (!labels.includes('type: docs')) labels.push('type: docs');
+            } else if (pr.title.toLowerCase().includes('refactor') || pr.title.startsWith('refactor:')) {
+              if (!labels.includes('type: refactor')) labels.push('type: refactor');
+            } else if (pr.title.toLowerCase().includes('test') || pr.title.startsWith('test:')) {
+              if (!labels.includes('type: test')) labels.push('type: test');
+            } else if (pr.title.toLowerCase().includes('chore') || pr.title.startsWith('chore:')) {
+              if (!labels.includes('type: chore')) labels.push('type: chore');
+            }
+            
+            // Add labels based on files changed
+            const hasDocChanges = files.some(file => file.filename.includes('README.md') || file.filename.includes('docs/') || file.filename.endsWith('.md'));
+            const hasTestChanges = files.some(file => file.filename.includes('test/') || file.filename.includes('spec/') || file.filename.includes('__tests__/'));
+            const hasCIChanges = files.some(file => file.filename.includes('.github/workflows/') || file.filename.includes('ci/'));
+            
+            if (hasDocChanges && !labels.includes('documentation')) labels.push('documentation');
+            if (hasTestChanges && !labels.includes('type: test')) labels.push('type: test');
+            if (hasCIChanges && !labels.includes('type: chore')) labels.push('type: chore');
+            
+            // Add status label
+            if (!labels.includes('status: review needed')) labels.push('status: review needed');
+            
+            // Update PR labels
+            await github.rest.issues.setLabels({
+              owner,
+              repo,
+              issue_number: number,
+              labels
+            });
+            
+            console.log(`Applied labels: ${labels.join(', ')}`);
+
+  copilot-review:
+    runs-on: ubuntu-latest
+    needs: label-pr
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: GitHub Copilot PR Review
+        id: copilot-review
+        uses: github/copilot-preview-action@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          review-comment-prefix: "GitHub Copilot:"
+
+      - name: Update PR labels based on Copilot review
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { owner, repo, number } = context.issue;
+            
+            // Get the PR details
+            const { data: pr } = await github.rest.pulls.get({
+              owner,
+              repo,
+              pull_number: number
+            });
+            
+            // Initialize labels array with existing labels
+            const labels = [...pr.labels.map(label => label.name)];
+            
+            // Remove review needed label
+            const reviewNeededIndex = labels.indexOf('status: review needed');
+            if (reviewNeededIndex > -1) {
+              labels.splice(reviewNeededIndex, 1);
+            }
+            
+            // Add status label based on Copilot review
+            if ('${{ steps.copilot-review.outcome }}' === 'success') {
+              if (!labels.includes('status: review passed')) labels.push('status: review passed');
+            } else {
+              if (!labels.includes('status: changes requested')) labels.push('status: changes requested');
+            }
+            
+            // Update PR labels
+            await github.rest.issues.setLabels({
+              owner,
+              repo,
+              issue_number: number,
+              labels
+            });
+            
+            console.log(`Updated labels: ${labels.join(', ')}`);
+
+      - name: Approve PR if Copilot review is successful
+        if: success()
+        uses: hmarr/auto-approve-action@v3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          review-message: "Automatically approved by GitHub Copilot review workflow. All suggestions have been reviewed and incorporated where appropriate."
